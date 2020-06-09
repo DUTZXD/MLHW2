@@ -98,7 +98,6 @@ if __name__ == '__main__':
     discriminator = Discriminator().to(device)
     # generator.load_state_dict(torch.load('g_net_params.pkl'))
     # discriminator.load_state_dict(torch.load('d_net_params.pkl'))
-    # fixed_z = torch.randn(size=(batch_size, z_dim)).to(device)
 
     criterion = nn.BCELoss()
     optimizer_G = optim.Adam(generator.parameters(), lr=0.0003, betas=(0.5, 0.999))
@@ -109,10 +108,6 @@ if __name__ == '__main__':
 
     dataset = MyData('./data.txt', transform=transforms.Compose([transforms.Resize(96), transforms.ToTensor()]))
     data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
-    #
-    # label = torch.FloatTensor()
-    # real_label = 1
-    # fake_label = 0
 
     for epoch in range(1, epoches+1):
         g_loss_sum = 0.0
@@ -121,10 +116,8 @@ if __name__ == '__main__':
             optimizer_D.zero_grad()
             images = images.to(device)
             d_out_real = discriminator(images)
-            # print(d_out_real.size())
             real_loss = criterion(d_out_real, real_label)
             real_loss.backward()
-            # label.data.fill_(fake_label)
             noise = torch.randn(batch_size, z_dim, 1, 1).to(device)
             fake = generator(noise)
             d_out_fake = discriminator(fake.detach())
@@ -134,8 +127,6 @@ if __name__ == '__main__':
             optimizer_D.step()
 
             optimizer_G.zero_grad()
-            # label.data.fill_(real_label)
-            # label = label.to(device)
             d_out_fake = discriminator(fake)
             g_loss = criterion(d_out_fake, real_label)
             g_loss.backward()
@@ -151,15 +142,3 @@ if __name__ == '__main__':
         torch.save(generator.state_dict(), 'g_net_params.pkl')
         torch.save(discriminator.state_dict(), 'd_net_params.pkl')
 
-    x1 = range(epoches)
-    y1 = g_loss_list
-    plt.plot(x1, y1, '-')
-    plt.ylabel('G_Loss')
-    plt.xlabel('epoch')
-    plt.savefig("gloss.jpg")
-    x2 = range(epoches)
-    y2 = d_loss_list
-    plt.plot(x2, y2, '-')
-    plt.ylabel('D_Loss')
-    plt.xlabel('epoch')
-    plt.savefig("dloss.jpg")
