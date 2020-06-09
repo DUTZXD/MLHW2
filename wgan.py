@@ -16,10 +16,7 @@ g_loss_list = []
 d_loss_list = []
 
 
-class Generator(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.generator = nn.Sequential(
+generator = nn.Sequential(
             nn.ConvTranspose2d(z_dim, ngf * 8, kernel_size=4, stride=1, padding=0, bias=False),
             nn.BatchNorm2d(ngf * 8),
             nn.ReLU(inplace=True),
@@ -36,15 +33,7 @@ class Generator(nn.Module):
             nn.Tanh()
         )
 
-    def forward(self, x):
-        out = self.generator(x)
-        return out
-
-
-class Discriminator(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.discriminator = nn.Sequential(
+discriminator = nn.Sequential(
             nn.Conv2d(3, ndf, kernel_size=5, stride=3, padding=1, bias=False),
             nn.BatchNorm2d(ndf),
             nn.LeakyReLU(0.2, inplace=True),
@@ -58,12 +47,7 @@ class Discriminator(nn.Module):
             nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
-            # nn.Sigmoid()
         )
-
-    def forward(self, x):
-        out = self.discriminator(x)
-        return out
 
 
 class MyData(Dataset):
@@ -92,7 +76,8 @@ class MyData(Dataset):
 if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    optimizer_D = optim.RMSprop(generator.parameters(), lr=0.0003)
+    optimizer_G = optim.RMSprop(discriminator.parameters(), lr=0.0003)
     generator = Generator().to(device)
     discriminator = Discriminator().to(device)
     # generator.load_state_dict(torch.load('g_net_params.pkl'))
@@ -101,8 +86,7 @@ if __name__ == '__main__':
     # criterion = nn.BCELoss()
     # optimizer_G = optim.Adam(generator.parameters(), lr=0.0003, betas=(0.5, 0.999))
     # optimizer_D = optim.Adam(discriminator.parameters(), lr=0.0003, betas=(0.5, 0.999))
-    optimizer_D = optim.RMSprop(generator.parameters(), lr=0.0003)
-    optimizer_G = optim.RMSprop(discriminator.parameters(), lr=0.0003)
+
 
     # real_label = torch.ones(size=(batch_size, 1, 1, 1), requires_grad=False).to(device)
     # fake_label = torch.zeros(size=(batch_size, 1, 1, 1), requires_grad=False).to(device)
@@ -110,8 +94,8 @@ if __name__ == '__main__':
     dataset = MyData('./data.txt', transform=transforms.Compose([transforms.Resize(96), transforms.ToTensor()]))
     data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
 
-    one = torch.FloatTensor([1])
-    mone = -1 * one
+    real = torch.FloatTensor([1])
+    fake = -1 * real
 
     for epoch in range(1, epochs+1):
         g_loss_sum = 0.0
@@ -124,20 +108,17 @@ if __name__ == '__main__':
 
             discriminator.zero_grad()
             d_real = discriminator(images)
-            d_real.backward(one)
+            d_real.backward(real)
 
-            fake = generator(noise).detach()
-            d_fake = discriminator(fake)
-            # fake_loss = criterion(d_out_fake, fake_label)
-            # fake_loss.backward()
-            d_fake.backward(mone)
-            d_loss = d_real + d_fake
+            fake_img = generator(noise).detach()
+            d_fake = discriminator(fake_img)
+            d_fake.backward(fake)
             optimizer_D.step()
+            d_loss = d_real + d_fake
 
-            optimizer_G.zero_grad()
-            g_loss = discriminator(fake)
-            # g_loss = criterion(d_out_fake, real_label)
-            g_loss.backward(one)
+            generator.zero_grad()
+            g_loss = discriminator(fake_img)
+            g_loss.backward(real)
             optimizer_G.step()
 
             g_loss_sum += g_loss.item()
