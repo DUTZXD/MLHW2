@@ -18,10 +18,10 @@ d_loss_list = []
 
 
 class Generator(nn.Module):
-    def __init__(self, nz):
+    def __init__(self):
         super().__init__()
         self.generator = nn.Sequential(
-            nn.ConvTranspose2d(nz, ngf * 8, kernel_size=4, stride=1, padding=0, bias=False),
+            nn.ConvTranspose2d(z_dim, ngf * 8, kernel_size=4, stride=1, padding=0, bias=False),
             nn.BatchNorm2d(ngf * 8),
             nn.ReLU(inplace=True),
             nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False),
@@ -94,10 +94,10 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    generator = Generator(z_dim).to(device)
+    generator = Generator().to(device)
     discriminator = Discriminator().to(device)
-    # generator.load_state_dict(torch.load('g_net_params.pkl'))
-    # discriminator.load_state_dict(torch.load('d_net_params.pkl'))
+    generator.load_state_dict(torch.load('g_net_params.pkl'))
+    discriminator.load_state_dict(torch.load('d_net_params.pkl'))
 
     criterion = nn.BCELoss()
     optimizer_G = optim.Adam(generator.parameters(), lr=0.0003, betas=(0.5, 0.999))

@@ -17,10 +17,10 @@ d_loss_list = []
 
 
 class Generator(nn.Module):
-    def __init__(self, nz):
+    def __init__(self):
         super().__init__()
         self.generator = nn.Sequential(
-            nn.ConvTranspose2d(nz, ngf * 8, kernel_size=4, stride=1, padding=0, bias=False),
+            nn.ConvTranspose2d(z_dim, ngf * 8, kernel_size=4, stride=1, padding=0, bias=False),
             nn.BatchNorm2d(ngf * 8),
             nn.ReLU(inplace=True),
             nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False),
@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    generator = Generator(z_dim).to(device)
+    generator = Generator().to(device)
     discriminator = Discriminator().to(device)
     # generator.load_state_dict(torch.load('g_net_params.pkl'))
     # discriminator.load_state_dict(torch.load('d_net_params.pkl'))
@@ -121,27 +121,26 @@ if __name__ == '__main__':
             noise = torch.randn(batch_size, z_dim, 1, 1).to(device)
             for parm in discriminator.parameters():
                 parm.data.clamp_(-0.01, 0.01)
-            optimizer_D.zero_grad()
-            d_out_real = discriminator(images)
-            d_out_real.backward(one)
-            # real_loss = criterion(d_out_real, real_label)
-            # real_loss.backward()
 
-            fake = generator(noise)
-            d_out_fake = discriminator(fake.detach())
+            discriminator.zero_grad()
+            d_real = discriminator(images)
+            d_real.backward(one)
+
+            fake = generator(noise).detach()
+            d_fake = discriminator(fake)
             # fake_loss = criterion(d_out_fake, fake_label)
             # fake_loss.backward()
-            d_out_fake.backward(mone)
-            d_loss = d_out_real + d_out_fake
+            d_fake.backward(mone)
+            d_loss = d_real + d_fake
             optimizer_D.step()
 
             optimizer_G.zero_grad()
-            d_out_fake = discriminator(fake)
+            g_loss = discriminator(fake)
             # g_loss = criterion(d_out_fake, real_label)
-            d_out_fake.backward(one)
+            g_loss.backward(one)
             optimizer_G.step()
 
-            g_loss_sum += d_out_fake.item()
+            g_loss_sum += g_loss.item()
             d_loss_sum += d_loss.item()
             print("[%d/%d], [%d/%d], Loss_D: %.3f, Loss_G: %.3f" % (epoch, epochs, batch_index, len(data_loader), d_loss.item(), g_loss.item()))
             if epoch % 5 == 0:
