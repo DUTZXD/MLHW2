@@ -5,7 +5,6 @@ import torch.optim as optim
 import torchvision.utils as vutils
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
-import matplotlib.pyplot as plt
 
 batch_size = 100
 epochs = 50
@@ -59,7 +58,7 @@ class Discriminator(nn.Module):
             nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
-            nn.Sigmoid()
+            # nn.Sigmoid()
         )
 
     def forward(self, x):
@@ -99,40 +98,50 @@ if __name__ == '__main__':
     # generator.load_state_dict(torch.load('g_net_params.pkl'))
     # discriminator.load_state_dict(torch.load('d_net_params.pkl'))
 
-    criterion = nn.BCELoss()
-    optimizer_G = optim.Adam(generator.parameters(), lr=0.0003, betas=(0.5, 0.999))
-    optimizer_D = optim.Adam(discriminator.parameters(), lr=0.0003, betas=(0.5, 0.999))
+    # criterion = nn.BCELoss()
+    # optimizer_G = optim.Adam(generator.parameters(), lr=0.0003, betas=(0.5, 0.999))
+    # optimizer_D = optim.Adam(discriminator.parameters(), lr=0.0003, betas=(0.5, 0.999))
+    optimizer_D = optim.RMSprop(generator.parameters(), lr=0.0003)
+    optimizer_G = optim.RMSprop(discriminator.parameters(), lr=0.0003)
 
-    real_label = torch.ones(size=(batch_size, 1, 1, 1), requires_grad=False).to(device)
-    fake_label = torch.zeros(size=(batch_size, 1, 1, 1), requires_grad=False).to(device)
+    # real_label = torch.ones(size=(batch_size, 1, 1, 1), requires_grad=False).to(device)
+    # fake_label = torch.zeros(size=(batch_size, 1, 1, 1), requires_grad=False).to(device)
 
     dataset = MyData('./data.txt', transform=transforms.Compose([transforms.Resize(96), transforms.ToTensor()]))
     data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
+
+    one = torch.FloatTensor([1])
+    mone = -1 * one
 
     for epoch in range(1, epochs+1):
         g_loss_sum = 0.0
         d_loss_sum = 0.0
         for batch_index, images in enumerate(data_loader):
-            optimizer_D.zero_grad()
             images = images.to(device)
-            d_out_real = discriminator(images)
-            real_loss = criterion(d_out_real, real_label)
-            real_loss.backward()
             noise = torch.randn(batch_size, z_dim, 1, 1).to(device)
+            for parm in discriminator.parameters():
+                parm.data.clamp_(-0.01, 0.01)
+            optimizer_D.zero_grad()
+            d_out_real = discriminator(images)
+            d_out_real.backward(one)
+            # real_loss = criterion(d_out_real, real_label)
+            # real_loss.backward()
+
             fake = generator(noise)
             d_out_fake = discriminator(fake.detach())
-            fake_loss = criterion(d_out_fake, fake_label)
-            fake_loss.backward()
-            d_loss = real_loss + fake_loss
+            # fake_loss = criterion(d_out_fake, fake_label)
+            # fake_loss.backward()
+            d_out_fake.backward(mone)
+            d_loss = d_out_real + d_out_fake
             optimizer_D.step()
 
             optimizer_G.zero_grad()
             d_out_fake = discriminator(fake)
-            g_loss = criterion(d_out_fake, real_label)
-            g_loss.backward()
+            # g_loss = criterion(d_out_fake, real_label)
+            d_out_fake.backward(one)
             optimizer_G.step()
 
-            g_loss_sum += g_loss.item()
+            g_loss_sum += d_out_fake.item()
             d_loss_sum += d_loss.item()
             print("[%d/%d], [%d/%d], Loss_D: %.3f, Loss_G: %.3f" % (epoch, epochs, batch_index, len(data_loader), d_loss.item(), g_loss.item()))
             if epoch % 5 == 0:
