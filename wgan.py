@@ -143,7 +143,7 @@ if __name__ == '__main__':
 
             g_loss_sum += d_out_fake.item()
             d_loss_sum += d_loss.item()
-            print("[%d/%d], [%d/%d], Loss_D: %.3f, Loss_G: %.3f" % (epoch, epochs, batch_index, len(data_loader), d_loss.item(), g_loss.item()))
+            print("[%d/%d], [%d/%d], Loss_D: %.3f, Loss_G: %.3f" % (epoch, epochs, batch_index, len(data_loader), d_loss.item(), d_out_fake.item()))
             if epoch % 5 == 0:
                 vutils.save_image(fake.data, './result/fake_result_%03d.png' % epoch, normalize=True)
         g_loss_list.append(g_loss_sum)
